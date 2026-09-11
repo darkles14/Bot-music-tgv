@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Web App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { background: #121212; color: #fff; font-family: sans-serif; padding: 20px; }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
+        .badge { color: #ffcc00; font-weight: bold; }
+        button { background: #1db954; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; }
+    </style>
+</head>
+<body>
+    <h2>🎧 Музыкальный Плеер</h2>
+    <div class="card">
+        <div>Привет, <span id="username"></span> <span id="badge" class="badge"></span></div>
+    </div>
+
+    <div class="card">
+        <h3>🔥 Популярные треки</h3>
+        <p>Трек 1 — Исполнитель</p>
+        <button onclick="alert('Воспроизведение...')">Слушать</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        const user = tg.initDataUnsafe.user;
+        const OWNER_ID = 6948885848;
+
+        if (user) {
+            document.getElementById('username').innerText = user.first_name;
+            if (user.id === OWNER_ID) {
+                document.getElementById('badge').innerText = "👑 [Основатель]";
+            }
+        }
+    </script>
+</body>
+</html>
