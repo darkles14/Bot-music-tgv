@@ -2,40 +2,172 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Music Web App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Music App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { background: #121212; color: #fff; font-family: sans-serif; padding: 20px; }
-        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
-        .badge { color: #ffcc00; font-weight: bold; }
-        button { background: #1db954; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: #121212; color: #fff; padding: 15px; padding-bottom: 110px; }
+        
+        /* Header */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .user-info { display: flex; align-items: center; gap: 8px; font-weight: bold; }
+        .badge-owner { color: #ffd700; font-size: 12px; border: 1px solid #ffd700; padding: 2px 6px; border-radius: 10px; }
+        .badge-admin { color: #1db954; font-size: 12px; border: 1px solid #1db954; padding: 2px 6px; border-radius: 10px; }
+
+        /* Search */
+        .search-box { margin-bottom: 20px; }
+        .search-box input { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #242424; color: #fff; outline: none; }
+
+        /* Sections */
+        .section-title { font-size: 18px; font-weight: bold; margin-bottom: 12px; }
+        .track-list { display: flex; flex-direction: column; gap: 10px; }
+        .track-item { display: flex; align-items: center; justify-content: space-between; background: #181818; padding: 10px; border-radius: 8px; cursor: pointer; }
+        .track-info { display: flex; flex-direction: column; }
+        .track-title { font-weight: 600; font-size: 14px; }
+        .track-artist { color: #b3b3b3; font-size: 12px; margin-top: 2px; }
+
+        /* Audio Player Bottom Bar */
+        .player-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #282828; padding: 12px 15px; border-top: 1px solid #333; display: flex; flex-direction: column; gap: 8px; }
+        .player-info { display: flex; justify-content: space-between; align-items: center; }
+        .controls { display: flex; gap: 15px; align-items: center; justify-content: center; }
+        .play-btn { background: #1db954; border: none; width: 40px; height: 40px; border-radius: 50%; color: #000; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .progress-container { width: 100%; display: flex; align-items: center; gap: 10px; font-size: 10px; color: #b3b3b3; }
+        .progress-bar { flex: 1; height: 4px; background: #535353; border-radius: 2px; appearance: none; outline: none; }
+        .progress-bar::-webkit-slider-thumb { appearance: none; width: 10px; height: 10px; border-radius: 50%; background: #1db954; }
     </style>
 </head>
 <body>
-    <h2>🎧 Музыкальный Плеер</h2>
-    <div class="card">
-        <div>Привет, <span id="username"></span> <span id="badge" class="badge"></span></div>
+
+    <div class="header">
+        <div class="user-info">
+            <span id="username">Пользователь</span>
+            <span id="role-badge"></span>
+        </div>
     </div>
 
-    <div class="card">
-        <h3>🔥 Популярные треки</h3>
-        <p>Трек 1 — Исполнитель</p>
-        <button onclick="alert('Воспроизведение...')">Слушать</button>
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Поиск треков и исполнителей..." onkeyup="filterTracks()">
     </div>
+
+    <div class="section-title">🔥 Популярные треки</div>
+    <div class="track-list" id="trackList"></div>
+
+    <!-- Плеер -->
+    <div class="player-bar">
+        <div class="player-info">
+            <div class="track-info">
+                <span class="track-title" id="current-title">Выберите трек</span>
+                <span class="track-artist" id="current-artist">—</span>
+            </div>
+            <button class="play-btn" id="playBtn" onclick="togglePlay()">▶</button>
+        </div>
+        <div class="progress-container">
+            <span id="currentTime">0:00</span>
+            <input type="range" id="progressBar" class="progress-bar" value="0" min="0" max="100" onchange="seekAudio()">
+            <span id="duration">0:00</span>
+        </div>
+    </div>
+
+    <audio id="audioPlayer"></audio>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        const user = tg.initDataUnsafe.user;
-        const OWNER_ID = 6948885848;
 
+        const OWNER_ID = 6948885848;
+        const user = tg.initDataUnsafe.user;
+
+        // Настройка пользователя
         if (user) {
-            document.getElementById('username').innerText = user.first_name;
+            document.getElementById('username').innerText = user.first_name || user.username;
+            const badge = document.getElementById('role-badge');
             if (user.id === OWNER_ID) {
-                document.getElementById('badge').innerText = "👑 [Основатель]";
+                badge.innerText = "👑 Основатель";
+                badge.className = "badge-owner";
             }
         }
+
+        // База треков (прямые ссылки на аудиофайлы)
+        const tracks = [
+            { id: 1, title: "Lofi Study", artist: "Chill Beats", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+            { id: 2, title: "Electronic Vibe", artist: "Synth Wave", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+            { id: 3, title: "Acoustic Morning", artist: "Guitar Dreams", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" }
+        ];
+
+        const audio = document.getElementById('audioPlayer');
+        const playBtn = document.getElementById('playBtn');
+        const progressBar = document.getElementById('progressBar');
+        let currentTrackIndex = -1;
+
+        function renderTracks(list) {
+            const container = document.getElementById('trackList');
+            container.innerHTML = '';
+            list.forEach((track, index) => {
+                container.innerHTML += `
+                    <div class="track-item" onclick="playTrack(${index})">
+                        <div class="track-info">
+                            <span class="track-title">${track.title}</span>
+                            <span class="track-artist">${track.artist}</span>
+                        </div>
+                        <span>▶</span>
+                    </div>
+                `;
+            });
+        }
+
+        function playTrack(index) {
+            currentTrackIndex = index;
+            const track = tracks[index];
+            audio.src = track.url;
+            document.getElementById('current-title').innerText = track.title;
+            document.getElementById('current-artist').innerText = track.artist;
+            audio.play();
+            playBtn.innerText = "❚❚";
+        }
+
+        function togglePlay() {
+            if (currentTrackIndex === -1 && tracks.length > 0) {
+                playTrack(0);
+                return;
+            }
+            if (audio.paused) {
+                audio.play();
+                playBtn.innerText = "❚❚";
+            } else {
+                audio.pause();
+                playBtn.innerText = "▶";
+            }
+        }
+
+        audio.ontimeupdate = () => {
+            if (audio.duration) {
+                const progress = (audio.currentTime / audio.duration) * 100;
+                progressBar.value = progress;
+                document.getElementById('currentTime').innerText = formatTime(audio.currentTime);
+                document.getElementById('duration').innerText = formatTime(audio.duration);
+            }
+        };
+
+        function seekAudio() {
+            if (audio.duration) {
+                audio.currentTime = (progressBar.value / 100) * audio.duration;
+            }
+        }
+
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        function filterTracks() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = tracks.filter(t => t.title.toLowerCase().includes(query) || t.artist.toLowerCase().includes(query));
+            renderTracks(filtered);
+        }
+
+        renderTracks(tracks);
     </script>
 </body>
 </html>
